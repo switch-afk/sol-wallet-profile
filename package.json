@@ -1,0 +1,38 @@
+{
+  "name": "sol-wallet-profile",
+  "version": "0.1.0",
+  "description": "A quick profile of a Solana wallet from the command line (zero-dependency CLI)",
+  "bin": {
+    "sol-wallet-profile": "bin/sol-wallet-profile.js"
+  },
+  "main": "src/index.js",
+  "files": [
+    "bin",
+    "src",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "prepublishOnly": "npm test"
+  },
+  "keywords": [
+    "solana",
+    "wallet",
+    "profile",
+    "cli",
+    "rpc"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/switch-afk/sol-wallet-profile.git"
+  },
+  "bugs": {
+    "url": "https://github.com/switch-afk/sol-wallet-profile/issues"
+  },
+  "homepage": "https://github.com/switch-afk/sol-wallet-profile#readme",
+  "author": "Sybi",
+  "license": "MIT"
+}
