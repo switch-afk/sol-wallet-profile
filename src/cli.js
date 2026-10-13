@@ -3,6 +3,8 @@
 const pkg = require('../package.json');
 const { parseArgs } = require('./args');
 const { isValidAddress } = require('./base58');
+const { resolveEndpoint, RpcError } = require('./rpc');
+const { fetchProfile, renderText } = require('./profile');
 
 const HELP = `sol-wallet-profile - a quick profile of a Solana wallet
 
@@ -23,7 +25,9 @@ function defaultIo() {
   };
 }
 
-async function run(argv, io = defaultIo()) {
+// deps lets tests inject a fake fetch, a no-wait sleep and a fake environment.
+async function run(argv, io = defaultIo(), deps = {}) {
+  const { env = process.env, fetchImpl, sleepImpl } = deps;
   const opts = parseArgs(argv);
 
   if (opts.errors.length > 0) {
@@ -53,8 +57,22 @@ async function run(argv, io = defaultIo()) {
     return 2;
   }
 
-  io.err('Fetching the profile is not implemented yet.');
-  return 1;
+  const endpoint = resolveEndpoint(opts.rpc, env);
+
+  let profile;
+  try {
+    profile = await fetchProfile(endpoint, opts.address, { fetchImpl, sleepImpl });
+  } catch (err) {
+    if (err instanceof RpcError) {
+      io.err(`error: ${err.message}`);
+      if (err.hint) io.err(err.hint);
+      return 1;
+    }
+    throw err;
+  }
+
+  io.out(opts.json ? JSON.stringify(profile, null, 2) : renderText(profile));
+  return 0;
 }
 
 module.exports = { run, HELP };
