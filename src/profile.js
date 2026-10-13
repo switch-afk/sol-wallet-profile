@@ -1,6 +1,7 @@
 'use strict';
 
 const { rpcCall, RpcError, hostLabel } = require('./rpc');
+const { activityRows } = require('./activity');
 
 const SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
@@ -93,21 +94,27 @@ function row(label, value) {
   return `${label.padEnd(9)}${value}`;
 }
 
-function renderText(profile) {
+function renderText(profile, now = Date.now()) {
   const lines = [row('Address', profile.address)];
 
   if (!profile.exists) {
     lines.push(row('Balance', '0 SOL'));
     lines.push(row('Status', 'not found on chain (never funded, or closed)'));
-    return lines.join('\n');
+  } else {
+    lines.push(row('Balance', `${profile.sol} SOL (${profile.lamports} lamports)`));
+    lines.push(row('Type', profile.kind));
+    lines.push(
+      row('Owner', profile.ownerLabel ? `${profile.ownerLabel} (${profile.owner})` : profile.owner),
+    );
+    if (profile.dataSize !== null) lines.push(row('Data', `${profile.dataSize} bytes`));
   }
 
-  lines.push(row('Balance', `${profile.sol} SOL (${profile.lamports} lamports)`));
-  lines.push(row('Type', profile.kind));
-  lines.push(
-    row('Owner', profile.ownerLabel ? `${profile.ownerLabel} (${profile.owner})` : profile.owner),
-  );
-  if (profile.dataSize !== null) lines.push(row('Data', `${profile.dataSize} bytes`));
+  if (profile.activity) {
+    for (const [label, value] of activityRows(profile.activity, now)) {
+      lines.push(row(label, value));
+    }
+  }
+
   return lines.join('\n');
 }
 

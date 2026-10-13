@@ -5,6 +5,7 @@ const { parseArgs } = require('./args');
 const { isValidAddress } = require('./base58');
 const { resolveEndpoint, RpcError } = require('./rpc');
 const { fetchProfile, renderText } = require('./profile');
+const { fetchActivity } = require('./activity');
 
 const HELP = `sol-wallet-profile - a quick profile of a Solana wallet
 
@@ -25,9 +26,9 @@ function defaultIo() {
   };
 }
 
-// deps lets tests inject a fake fetch, a no-wait sleep and a fake environment.
+// deps lets tests inject a fake fetch, a no-wait sleep, a fake environment and a fixed clock.
 async function run(argv, io = defaultIo(), deps = {}) {
-  const { env = process.env, fetchImpl, sleepImpl } = deps;
+  const { env = process.env, fetchImpl, sleepImpl, now } = deps;
   const opts = parseArgs(argv);
 
   if (opts.errors.length > 0) {
@@ -58,10 +59,13 @@ async function run(argv, io = defaultIo(), deps = {}) {
   }
 
   const endpoint = resolveEndpoint(opts.rpc, env);
+  const rpcOptions = { fetchImpl, sleepImpl };
 
   let profile;
   try {
-    profile = await fetchProfile(endpoint, opts.address, { fetchImpl, sleepImpl });
+    profile = await fetchProfile(endpoint, opts.address, rpcOptions);
+    // One call after the other keeps us gentle on public RPC rate limits.
+    profile.activity = await fetchActivity(endpoint, opts.address, rpcOptions);
   } catch (err) {
     if (err instanceof RpcError) {
       io.err(`error: ${err.message}`);
@@ -71,7 +75,7 @@ async function run(argv, io = defaultIo(), deps = {}) {
     throw err;
   }
 
-  io.out(opts.json ? JSON.stringify(profile, null, 2) : renderText(profile));
+  io.out(opts.json ? JSON.stringify(profile, null, 2) : renderText(profile, now));
   return 0;
 }
 
