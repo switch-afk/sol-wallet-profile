@@ -6,6 +6,7 @@ const { isValidAddress } = require('./base58');
 const { resolveEndpoint, RpcError } = require('./rpc');
 const { fetchProfile, renderText } = require('./profile');
 const { fetchActivity } = require('./activity');
+const { fetchTokens } = require('./tokens');
 
 const HELP = `sol-wallet-profile - a quick profile of a Solana wallet
 
@@ -63,9 +64,10 @@ async function run(argv, io = defaultIo(), deps = {}) {
 
   let profile;
   try {
-    profile = await fetchProfile(endpoint, opts.address, rpcOptions);
     // One call after the other keeps us gentle on public RPC rate limits.
+    profile = await fetchProfile(endpoint, opts.address, rpcOptions);
     profile.activity = await fetchActivity(endpoint, opts.address, rpcOptions);
+    profile.tokens = await fetchTokens(endpoint, opts.address, rpcOptions);
   } catch (err) {
     if (err instanceof RpcError) {
       io.err(`error: ${err.message}`);
