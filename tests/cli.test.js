@@ -9,6 +9,8 @@ const { createMockRpc } = require('./helpers/mock-rpc');
 const ADDRESS = 'So11111111111111111111111111111111111111112';
 const ENDPOINT = 'https://rpc.example.com/secret-key-123';
 const SYSTEM_PROGRAM = '11111111111111111111111111111111';
+const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const BLOCK_TIME = 1760000000;
 
 const walletRoute = {
@@ -32,10 +34,39 @@ const twoTransactions = {
   ],
 };
 
+const usdcAccount = {
+  pubkey: 'tokenAccount1',
+  account: {
+    lamports: 2039280,
+    owner: TOKEN_PROGRAM,
+    executable: false,
+    rentEpoch: 0,
+    space: 165,
+    data: {
+      program: 'spl-token',
+      space: 165,
+      parsed: {
+        type: 'account',
+        info: {
+          isNative: false,
+          mint: USDC,
+          owner: ADDRESS,
+          state: 'initialized',
+          tokenAmount: { amount: '1234500000', decimals: 6, uiAmount: 1234.5, uiAmountString: '1234.5' },
+        },
+      },
+    },
+  },
+};
+
 async function runCli(argv, routes = {}, deps = {}) {
   const out = [];
   const err = [];
-  const fetchImpl = createMockRpc({ getSignaturesForAddress: { result: [] }, ...routes });
+  const fetchImpl = createMockRpc({
+    getSignaturesForAddress: { result: [] },
+    getTokenAccountsByOwner: { result: { context: { slot: 1 }, value: [] } },
+    ...routes,
+  });
   const code = await run(
     argv,
     { out: (t) => out.push(t), err: (t) => err.push(t) },
@@ -89,9 +120,12 @@ test('a valid address prints the wallet profile', async () => {
   assert.match(r.out, /Balance\s+2\.5 SOL \(2500000000 lamports\)/);
   assert.match(r.out, /Type\s+wallet/);
   assert.match(r.out, /Activity\s+no transactions found/);
-  assert.equal(r.fetchImpl.calls.length, 2);
+  assert.match(r.out, /Tokens\s+none/);
+  assert.equal(r.fetchImpl.calls.length, 4);
   assert.equal(r.fetchImpl.calls[0].method, 'getAccountInfo');
   assert.equal(r.fetchImpl.calls[1].method, 'getSignaturesForAddress');
+  assert.equal(r.fetchImpl.calls[2].method, 'getTokenAccountsByOwner');
+  assert.equal(r.fetchImpl.calls[3].method, 'getTokenAccountsByOwner');
 });
 
 test('recent activity is printed with a readable age', async () => {
@@ -106,7 +140,20 @@ test('recent activity is printed with a readable age', async () => {
   assert.match(r.out, /First tx\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/);
 });
 
-test('--json prints machine-readable JSON including activity', async () => {
+test('token holdings are printed', async () => {
+  const r = await runCli([ADDRESS], {
+    getAccountInfo: walletRoute,
+    getTokenAccountsByOwner: [
+      { result: { context: { slot: 1 }, value: [usdcAccount] } },
+      { result: { context: { slot: 1 }, value: [] } },
+    ],
+  });
+  assert.equal(r.code, 0);
+  assert.match(r.out, /Tokens\s+1 with a balance \(1 token account\)/);
+  assert.match(r.out, /1234\.5\s+USDC/);
+});
+
+test('--json prints machine-readable JSON including activity and tokens', async () => {
   const r = await runCli([ADDRESS, '--json'], {
     getAccountInfo: walletRoute,
     getSignaturesForAddress: twoTransactions,
@@ -121,6 +168,8 @@ test('--json prints machine-readable JSON including activity', async () => {
   assert.equal(data.activity.complete, true);
   assert.equal(data.activity.failed, 0);
   assert.equal(data.activity.lastSeen, new Date(BLOCK_TIME * 1000).toISOString());
+  assert.equal(data.tokens.accounts, 0);
+  assert.deepEqual(data.tokens.holdings, []);
 });
 
 test('an account that does not exist is reported, not an error', async () => {
@@ -153,6 +202,17 @@ test('a failure while fetching activity exits 1 and prints no partial profile', 
   const r = await runCli([ADDRESS, '--rpc', ENDPOINT], {
     getAccountInfo: walletRoute,
     getSignaturesForAddress: { status: 500 },
+  });
+  assert.equal(r.code, 1);
+  assert.match(r.err, /HTTP 500/);
+  assert.doesNotMatch(r.err, /secret-key-123/);
+  assert.equal(r.out, '');
+});
+
+test('a failure while fetching tokens exits 1 and prints no partial profile', async () => {
+  const r = await runCli([ADDRESS, '--rpc', ENDPOINT], {
+    getAccountInfo: walletRoute,
+    getTokenAccountsByOwner: { status: 500 },
   });
   assert.equal(r.code, 1);
   assert.match(r.err, /HTTP 500/);

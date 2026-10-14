@@ -2,6 +2,7 @@
 
 const { rpcCall, RpcError, hostLabel } = require('./rpc');
 const { activityRows } = require('./activity');
+const { tokenRows } = require('./tokens');
 
 const SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
@@ -111,6 +112,12 @@ function renderText(profile, now = Date.now()) {
 
   if (profile.activity) {
     for (const [label, value] of activityRows(profile.activity, now)) {
+      lines.push(row(label, value));
+    }
+  }
+
+  if (profile.tokens) {
+    for (const [label, value] of tokenRows(profile.tokens)) {
       lines.push(row(label, value));
     }
   }
