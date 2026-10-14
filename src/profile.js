@@ -8,6 +8,7 @@ const SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
 const KNOWN_OWNERS = {
   [SYSTEM_PROGRAM]: 'System Program',
+  NativeLoader1111111111111111111111111111111: 'Native Loader',
   TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA: 'Token Program',
   TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb: 'Token-2022 Program',
   BPFLoaderUpgradeab1e11111111111111111111111: 'BPF Upgradeable Loader',
@@ -85,7 +86,7 @@ async function fetchProfile(endpoint, address, options = {}) {
     sol: formatSol(value.lamports),
     kind: kindOf(value.owner, executable),
     owner: value.owner,
-    ownerLabel: KNOWN_OWNERS[value.owner] || null,
+    ownerLabel: Object.hasOwn(KNOWN_OWNERS, value.owner) ? KNOWN_OWNERS[value.owner] : null,
     executable,
     dataSize: typeof value.space === 'number' ? value.space : null,
   };
@@ -102,7 +103,8 @@ function renderText(profile, now = Date.now()) {
     lines.push(row('Balance', '0 SOL'));
     lines.push(row('Status', 'not found on chain (never funded, or closed)'));
   } else {
-    lines.push(row('Balance', `${profile.sol} SOL (${profile.lamports} lamports)`));
+    const unit = profile.lamports === 1 ? 'lamport' : 'lamports';
+    lines.push(row('Balance', `${profile.sol} SOL (${profile.lamports} ${unit})`));
     lines.push(row('Type', profile.kind));
     lines.push(
       row('Owner', profile.ownerLabel ? `${profile.ownerLabel} (${profile.owner})` : profile.owner),
